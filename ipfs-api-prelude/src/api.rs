@@ -59,7 +59,8 @@ pub trait IpfsApi: Backend {
     where
         R: 'static + Read + Send + Sync,
     {
-        self.add_with_options(data, request::Add::default()).await
+        self.add_with_options(data, request::Add::default(), None)
+            .await
     }
 
     /// Add a file to IPFS with options.
@@ -84,7 +85,7 @@ pub trait IpfsApi: Backend {
     ///     chunker: Some("rabin-512-1024-2048"),
     ///     ..Default::default()
     /// };
-    /// let req = client.add_with_options(data, add);
+    /// let req = client.add_with_options(data, add, None);
     /// # }
     /// ```
     ///
@@ -92,15 +93,18 @@ pub trait IpfsApi: Backend {
         &self,
         data: R,
         add: request::Add<'_>,
+        mut form_option: Option<multipart::Form<'static>>,
     ) -> Result<response::AddResponse, Self::Error>
     where
         R: 'static + Read + Send + Sync,
     {
-        let mut form = multipart::Form::default();
+        if form_option.is_none() {
+            let mut form_unwrapped = multipart::Form::default();
+            form_unwrapped.add_reader("path", data);
+            form_option = Some(form_unwrapped);
+        }
 
-        form.add_reader("path", data);
-
-        self.request(add, Some(form)).await
+        self.request(add, form_option).await
     }
 
     /// Add a path to Ipfs. Can be a file or directory.
